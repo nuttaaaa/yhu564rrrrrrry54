@@ -87,7 +87,7 @@ async def on_message(message: discord.Message):
 
     for attachment in message.attachments:
         name = attachment.filename.lower()
-        if name.endswith(".mp3") or name.endswith(".wav"):
+        if name.endswith(".mp3") or name.endswith(".wav") or name.endswith(".m4a"):
             await asyncio.sleep(delete_time)
             try:
                 await message.delete()
@@ -98,3 +98,4 @@ async def on_message(message: discord.Message):
 
 
 bot.run(os.getenv("DISCORD_TOKEN"))
+
