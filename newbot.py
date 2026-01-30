@@ -82,6 +82,7 @@ async def toggle(interaction: discord.Interaction):
         f"🔄 Audio auto-deletion is now **{status}**."
     )
 
-bot.run(os.getenv("DISCORD_TOKEN"))
+bot.run(TOKEN)
+
 
 
