@@ -40,14 +40,13 @@ async def on_message(message: discord.Message):
         return
 
     try:
-        # Send warning ONLY if delay > 0
+        # Send warning only if delay > 0
         if delete_delay > 0:
             warning = await message.channel.send(
                 f"⚠️ Your file(s) will delete in **{delete_delay} seconds**."
             )
             asyncio.create_task(delete_after(warning, 5))
 
-        # Delete original message after delay
         await asyncio.sleep(delete_delay)
         await message.delete()
 
@@ -65,7 +64,7 @@ async def delete_after(msg: discord.Message, delay: int):
         pass
 
 # ---------- Admin Check ----------
-def admin_only(interaction: discord.Interaction) -> bool:
+def is_admin(interaction: discord.Interaction) -> bool:
     return interaction.user.guild_permissions.administrator
 
 # ---------- Slash Commands ----------
@@ -77,9 +76,9 @@ def admin_only(interaction: discord.Interaction) -> bool:
 async def setdelay(interaction: discord.Interaction, seconds: int):
     global delete_delay
 
-    if not admin_only(interaction):
+    if not is_admin(interaction):
         await interaction.response.send_message(
-            "❌ You must be an **administrator** to use this command.",
+            "❌ Administrator permission required.",
             ephemeral=True
         )
         return
@@ -96,6 +95,10 @@ async def setdelay(interaction: discord.Interaction, seconds: int):
         f"✅ Audio deletion delay set to **{seconds} seconds**."
     )
 
+    # Delete confirmation after 5 seconds
+    msg = await interaction.original_response()
+    asyncio.create_task(delete_after(msg, 5))
+
 @bot.tree.command(
     name="toggle",
     description="Enable or disable audio file auto-deletion"
@@ -103,9 +106,9 @@ async def setdelay(interaction: discord.Interaction, seconds: int):
 async def toggle(interaction: discord.Interaction):
     global delete_enabled
 
-    if not admin_only(interaction):
+    if not is_admin(interaction):
         await interaction.response.send_message(
-            "❌ You must be an **administrator** to use this command.",
+            "❌ Administrator permission required.",
             ephemeral=True
         )
         return
