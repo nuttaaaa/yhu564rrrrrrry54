@@ -30,7 +30,7 @@ async def on_message(message: discord.Message):
     if message.author.bot or not delete_enabled:
         return
 
-    # Only check attachments (images/gifs/etc are allowed)
+    # Only check attachments (images/gifs/etc allowed)
     audio_files = [
         a for a in message.attachments
         if a.filename.lower().endswith(AUDIO_EXTENSIONS)
@@ -40,12 +40,12 @@ async def on_message(message: discord.Message):
         return
 
     try:
-        warning = await message.channel.send(
-            f"⚠️ Your file(s) will delete in **{delete_delay} seconds**."
-        )
-
-        # Delete bot warning after 5 seconds
-        asyncio.create_task(delete_after(warning, 5))
+        # Send warning ONLY if delay > 0
+        if delete_delay > 0:
+            warning = await message.channel.send(
+                f"⚠️ Your file(s) will delete in **{delete_delay} seconds**."
+            )
+            asyncio.create_task(delete_after(warning, 5))
 
         # Delete original message after delay
         await asyncio.sleep(delete_delay)
@@ -64,6 +64,10 @@ async def delete_after(msg: discord.Message, delay: int):
     except (discord.Forbidden, discord.NotFound):
         pass
 
+# ---------- Admin Check ----------
+def admin_only(interaction: discord.Interaction) -> bool:
+    return interaction.user.guild_permissions.administrator
+
 # ---------- Slash Commands ----------
 @bot.tree.command(
     name="setdelay",
@@ -73,9 +77,16 @@ async def delete_after(msg: discord.Message, delay: int):
 async def setdelay(interaction: discord.Interaction, seconds: int):
     global delete_delay
 
+    if not admin_only(interaction):
+        await interaction.response.send_message(
+            "❌ You must be an **administrator** to use this command.",
+            ephemeral=True
+        )
+        return
+
     if not 0 <= seconds <= 300:
         await interaction.response.send_message(
-            "❌ Please choose a value between **0 and 300 seconds**.",
+            "❌ Delay must be between **0 and 300 seconds**.",
             ephemeral=True
         )
         return
@@ -92,6 +103,13 @@ async def setdelay(interaction: discord.Interaction, seconds: int):
 async def toggle(interaction: discord.Interaction):
     global delete_enabled
 
+    if not admin_only(interaction):
+        await interaction.response.send_message(
+            "❌ You must be an **administrator** to use this command.",
+            ephemeral=True
+        )
+        return
+
     delete_enabled = not delete_enabled
     status = "enabled" if delete_enabled else "disabled"
 
@@ -100,6 +118,7 @@ async def toggle(interaction: discord.Interaction):
     )
 
 bot.run(TOKEN)
+
 
 
 
