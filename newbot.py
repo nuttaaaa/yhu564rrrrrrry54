@@ -1,101 +1,87 @@
-import os
 import discord
 from discord.ext import commands
 from discord import app_commands
 import asyncio
+
+TOKEN = "YOUR_BOT_TOKEN_HERE"
 
 intents = discord.Intents.default()
 intents.message_content = True
 
 bot = commands.Bot(command_prefix="!", intents=intents)
 
-# Settings (per-bot, simple version)
-delete_time = 60
-auto_delete_enabled = True
+# -------- Settings --------
+delete_enabled = True
+delete_delay = 60  # default seconds
+AUDIO_EXTENSIONS = (".mp3", ".wav", ".m4a")
 
-
+# -------- Ready --------
 @bot.event
 async def on_ready():
     await bot.tree.sync()
-    print(f"✅ Logged in as {bot.user}")
+    print(f"Logged in as {bot.user}")
 
-
-# 🔒 Admin-only: set delete time
-@bot.tree.command(
-    name="set_delete_time",
-    description="Set delete time for mp3/wav files (1–300 seconds)"
-)
-@app_commands.checks.has_permissions(administrator=True)
-async def set_delete_time(interaction: discord.Interaction, seconds: int):
-    global delete_time
-
-    if not 1 <= seconds <= 300:
-        await interaction.response.send_message(
-            "❌ Time must be between **1 and 300 seconds**.",
-            ephemeral=True
-        )
-        return
-
-    delete_time = seconds
-    await interaction.response.send_message(
-        f"✅ Delete time set to **{delete_time} seconds**.",
-        ephemeral=True
-    )
-
-
-# 🔒 Admin-only: enable / disable
-@bot.tree.command(
-    name="audio_autodelete",
-    description="Enable or disable mp3/wav auto deletion"
-)
-@app_commands.checks.has_permissions(administrator=True)
-@app_commands.choices(
-    state=[
-        app_commands.Choice(name="enable", value="enable"),
-        app_commands.Choice(name="disable", value="disable")
-    ]
-)
-async def audio_autodelete(
-    interaction: discord.Interaction,
-    state: app_commands.Choice[str]
-):
-    global auto_delete_enabled
-
-    auto_delete_enabled = state.value == "enable"
-
-    status = "✅ Enabled" if auto_delete_enabled else "❌ Disabled"
-    await interaction.response.send_message(
-        f"{status} audio auto-delete.",
-        ephemeral=True
-    )
-
-
-# Permission error handler
-@bot.tree.error
-async def on_app_command_error(interaction, error):
-    if isinstance(error, app_commands.errors.MissingPermissions):
-        await interaction.response.send_message(
-            "❌ Only **administrators** can use this command.",
-            ephemeral=True
-        )
-
-
+# -------- Message Listener --------
 @bot.event
 async def on_message(message: discord.Message):
-    if message.author.bot or not auto_delete_enabled:
+    global delete_enabled, delete_delay
+
+    if message.author.bot or not delete_enabled:
         return
 
-    for attachment in message.attachments:
-        name = attachment.filename.lower()
-        if name.endswith(".mp3") or name.endswith(".wav") or name.endswith(".m4a"):
-            await asyncio.sleep(delete_time)
-            try:
-                await message.delete()
-            except (discord.Forbidden, discord.NotFound):
-                pass
+    # Check ONLY attachments for audio files
+    audio_attachments = [
+        a for a in message.attachments
+        if a.filename.lower().endswith(AUDIO_EXTENSIONS)
+    ]
+
+    if not audio_attachments:
+        return  # No audio = ignore message completely
+
+    try:
+        warning = await message.channel.send(
+            f"⚠️ **Notice:** Your audio file(s) will be deleted in **{delete_delay} seconds**."
+        )
+
+        await asyncio.sleep(delete_delay)
+
+        await message.delete()
+        await warning.delete()
+
+    except (discord.Forbidden, discord.NotFound):
+        pass
 
     await bot.process_commands(message)
 
+# -------- Slash Commands --------
+@bot.tree.command(name="setdelay", description="Set delay before audio files are deleted (0–300 seconds)")
+@app_commands.describe(seconds="Seconds before deletion")
+async def setdelay(interaction: discord.Interaction, seconds: int):
+    global delete_delay
+
+    if not 0 <= seconds <= 300:
+        await interaction.response.send_message(
+            "❌ Please choose a value between **0 and 300 seconds**.",
+            ephemeral=True
+        )
+        return
+
+    delete_delay = seconds
+    await interaction.response.send_message(
+        f"✅ Audio deletion delay set to **{seconds} seconds**."
+    )
+
+@bot.tree.command(name="toggle", description="Enable or disable audio file auto-deletion")
+async def toggle(interaction: discord.Interaction):
+    global delete_enabled
+
+    delete_enabled = not delete_enabled
+    status = "enabled" if delete_enabled else "disabled"
+
+    await interaction.response.send_message(
+        f"🔄 Audio auto-deletion is now **{status}**."
+    )
 
 bot.run(os.getenv("DISCORD_TOKEN"))
+
 
