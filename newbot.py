@@ -30,6 +30,7 @@ async def on_message(message: discord.Message):
     if message.author.bot or not delete_enabled:
         return
 
+    # Only check attachments (images/gifs/etc are allowed)
     audio_files = [
         a for a in message.attachments
         if a.filename.lower().endswith(AUDIO_EXTENSIONS)
@@ -40,11 +41,11 @@ async def on_message(message: discord.Message):
 
     try:
         warning = await message.channel.send(
-            f"⚠️ **Notice:** Your audio file(s) will be deleted in **{delete_delay} seconds**."
+            f"⚠️ Your file(s) will delete in **{delete_delay} seconds**."
         )
 
-        # Delete warning after 10 seconds
-        asyncio.create_task(delete_after(warning, 10))
+        # Delete bot warning after 5 seconds
+        asyncio.create_task(delete_after(warning, 5))
 
         # Delete original message after delay
         await asyncio.sleep(delete_delay)
@@ -55,6 +56,7 @@ async def on_message(message: discord.Message):
 
     await bot.process_commands(message)
 
+# ---------- Helper ----------
 async def delete_after(msg: discord.Message, delay: int):
     try:
         await asyncio.sleep(delay)
@@ -73,7 +75,7 @@ async def setdelay(interaction: discord.Interaction, seconds: int):
 
     if not 0 <= seconds <= 300:
         await interaction.response.send_message(
-            "❌ Delay must be between **0 and 300 seconds**.",
+            "❌ Please choose a value between **0 and 300 seconds**.",
             ephemeral=True
         )
         return
@@ -98,6 +100,7 @@ async def toggle(interaction: discord.Interaction):
     )
 
 bot.run(TOKEN)
+
 
 
 
